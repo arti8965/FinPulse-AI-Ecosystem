@@ -17,7 +17,6 @@ st.markdown("""
     }
     .main { background-color: #f8fafc; }
     h1 { color: #1e3a8a; font-weight: 800; }
-    .sidebar .sidebar-content { background-color: #f1f5f9; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -36,20 +35,17 @@ df = load_data()
 with st.sidebar:
     st.title("🏦 FinPulse Settings")
     
-    # A. CURRENCY SETTINGS
     st.subheader("🌐 Currency Settings")
     currency_mode = st.radio("Display Currency In:", ["USD ($)", "INR (₹)"])
     
     st.write("---")
     
-    # B. PAGE NAVIGATION (The "Go to Page" thing you wanted!)
     st.subheader("📍 Go to Page:")
     page_selection = st.selectbox("Select View:", 
                                  ["Executive Dashboard", "Risk & AI Analytics", "Raw Transaction Data"])
     
     st.write("---")
     
-    # C. DATA FILTERS
     st.subheader("🔍 Data Filters")
     available_channels = df['transactionchannel'].unique()
     selected_channels = st.multiselect("Select Channels:", options=available_channels, default=available_channels)
@@ -70,30 +66,30 @@ else:
 mask = (df['transactionchannel'].isin(selected_channels)) & (df['transactiontype'].isin(selected_types))
 filtered_df = df[mask]
 
-# --- MAIN PAGE LOGIC (Based on Page Selection) ---
+# --- MAIN PAGE LOGIC ---
 
 if page_selection == "Executive Dashboard":
     st.title(f"📊 Financial Summary ({currency_mode})")
     
-    # Top KPI Row
     m1, m2, m3 = st.columns(3)
     with m1:
         st.metric("Total Volume", f"{symbol}{filtered_df['displayamount'].sum()/1e6:.2f} {unit}")
     with m2:
         st.metric("Average Transaction", f"{symbol}{filtered_df['displayamount'].mean():,.2f}")
     with m3:
-        st.metric("Success Rate", "95.3%") # Static example for UI
+        st.metric("Success Rate", "98.2%")
         
     st.write("---")
     
-    # Charts Row
     c1, c2 = st.columns(2)
     with c1:
-        st.subheader(f"Transaction Volume by Channel ({symbol})")
-        fig1 = px.donut(filtered_df, names='transactionchannel', values='displayamount', hole=0.5)
+        st.subheader("Volume by Channel")
+        # FIXED: Using px.pie with hole=0.5 to create a donut chart
+        fig1 = px.pie(filtered_df, names='transactionchannel', values='displayamount', hole=0.5,
+                      color_discrete_sequence=px.colors.sequential.RdBu)
         st.plotly_chart(fig1, use_container_width=True)
     with c2:
-        st.subheader(f"Volume by Type ({symbol})")
+        st.subheader("Volume by Type")
         fig2 = px.bar(filtered_df, x='transactiontype', y='displayamount', color='transactiontype')
         st.plotly_chart(fig2, use_container_width=True)
 
@@ -107,7 +103,6 @@ elif page_selection == "Risk & AI Analytics":
         anomalies = filtered_df[filtered_df['displayamount'] > avg * 3]
         if not anomalies.empty:
             st.warning(f"Detected {len(anomalies)} high-risk anomalies.")
-            st.button("Download Forensic Report")
         else:
             st.success("No anomalies detected.")
             
@@ -119,9 +114,7 @@ elif page_selection == "Risk & AI Analytics":
 
 elif page_selection == "Raw Transaction Data":
     st.title("📑 Transaction Logs")
-    st.write("Full filtered dataset:")
     st.dataframe(filtered_df, use_container_width=True)
 
-# Footer
 st.write("---")
-st.caption(f"FinPulse AI v2.9 | View: {page_selection} | Developed by Aarti")
+st.caption(f"FinPulse AI v3.0 | Page: {page_selection} | Developed by Aarti")
