@@ -2,21 +2,29 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-# 1. PAGE SETUP
-st.set_page_config(page_title="FinPulse AI Ecosystem", layout="wide")
+# 1. PAGE CONFIGURATION
+st.set_page_config(page_title="FinPulse AI Ecosystem", layout="wide", initial_sidebar_state="expanded")
 
-# 2. ADVANCED UI STYLING
+# 2. PREMIUM UI STYLING (Restoring the clean look)
 st.markdown("""
     <style>
-    .stMetric {
+    /* Metric Card Styling */
+    [data-testid="stMetric"] {
         background-color: #ffffff;
-        border: 1px solid #e1e4e8;
-        padding: 15px;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        border: 1px solid #e2e8f0;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     }
-    .main { background-color: #f8f9fa; }
-    h1 { color: #1e3a8a; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    .main { background-color: #f8fafc; }
+    h1 { color: #1e3a8a; font-weight: 800; font-family: 'Inter', sans-serif; }
+    h3 { color: #334155; font-weight: 600; }
+    
+    /* Making Multiselect Tags look professional */
+    span[data-baseweb="tag"] {
+        background-color: #1e3a8a !important;
+        color: white !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -24,21 +32,40 @@ st.markdown("""
 @st.cache_data
 def load_data():
     df = pd.read_csv("data.csv")
+    # Clean column names
     df.columns = df.columns.str.strip().str.lower()
+    # Convert date format
     if 'transactiondate' in df.columns:
         df['transactiondate'] = pd.to_datetime(df['transactiondate'])
     return df
 
 df = load_data()
 
-# SIDEBAR CUSTOMIZATION
+# --- SIDEBAR (Clean & Spacious Filters) ---
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/2830/2830284.png", width=70)
-    st.markdown("## Control Center")
-    currency_mode = st.radio("Reporting Currency:", ["USD ($)", "INR (₹)"])
-    selected_channels = st.multiselect("Select Channels:", options=df['transactionchannel'].unique(), default=df['transactionchannel'].unique())
+    st.image("https://cdn-icons-png.flaticon.com/512/2830/2830284.png", width=80)
+    st.title("Control Panel")
+    st.write("---")
+    
+    # Currency Switcher
+    currency_mode = st.radio("Reporting Currency:", ["USD ($)", "INR (₹)"], index=0)
+    
+    st.write("") # Spacer
+    st.write("---")
+    
+    # Restoring the "ATM/WEB" Filter look you liked
+    st.subheader("Filter by Channel")
+    available_channels = df['transactionchannel'].unique()
+    selected_channels = st.multiselect(
+        "Select specific channels:",
+        options=available_channels, 
+        default=available_channels,
+        help="Choose channels to update the dashboard visuals"
+    )
+    st.write("---")
+    st.caption("FinPulse AI v2.7 | Secure Environment")
 
-# CURRENCY LOGIC
+# --- CURRENCY CALCULATIONS ---
 conversion_rate = 83.5 
 if currency_mode == "INR (₹)":
     df['displayamount'] = df['transactionamount'].abs() * conversion_rate
@@ -47,63 +74,59 @@ else:
     df['displayamount'] = df['transactionamount'].abs()
     symbol, unit = "$", "M"
 
+# Apply Filters
 filtered_df = df[df['transactionchannel'].isin(selected_channels)]
 
-# --- DASHBOARD HEADER ---
-st.title("🏦 FinPulse AI Ecosystem")
-st.markdown("#### High-Fidelity Financial Intelligence")
+# --- MAIN DASHBOARD LAYOUT ---
+st.title("🏦 FinPulse AI: Financial Intelligence Ecosystem")
+st.markdown("#### Real-time Liquidity and Risk Monitoring")
 
-# --- TOP METRICS ---
+# KPI Metrics Row
 m1, m2, m3 = st.columns(3)
 with m1:
     st.metric("Total Volume", f"{symbol}{filtered_df['displayamount'].sum()/1e6:.2f} {unit}")
 with m2:
-    st.metric("Avg Ticket Size", f"{symbol}{filtered_df['displayamount'].mean():,.0f}")
+    st.metric("Avg Transaction", f"{symbol}{filtered_df['displayamount'].mean():,.0f}")
 with m3:
-    st.metric("Total Transactions", f"{len(filtered_df):,}")
+    st.metric("Active Channels", len(selected_channels))
 
 # --- ANALYTICS SECTION ---
-st.write("---")
-c1, c2 = st.columns([1, 1])
+st.write("")
+chart_col1, chart_col2 = st.columns(2)
 
-with c1:
+with chart_col1:
     st.subheader("Transaction Distribution")
     fig1 = px.pie(filtered_df, names='transactiontype', values='displayamount', hole=0.5,
-                  color_discrete_sequence=['#1e3a8a', '#3b82f6', '#93c5fd'])
-    fig1.update_layout(height=350, margin=dict(t=0, b=0, l=0, r=0))
+                  color_discrete_sequence=['#1e3a8a', '#3b82f6', '#93c5fd', '#cbd5e1'])
+    fig1.update_layout(height=400, margin=dict(t=20, b=20, l=20, r=20))
     st.plotly_chart(fig1, use_container_width=True)
 
-with c2:
+with chart_col2:
     st.subheader("Volume by Channel")
     fig2 = px.bar(filtered_df, x='transactionchannel', y='displayamount', 
-                  color='transactionchannel', color_discrete_sequence=px.colors.qualitative.Safe)
-    fig2.update_layout(height=350, showlegend=False)
+                  color='transactionchannel', color_discrete_sequence=px.colors.qualitative.Prism)
+    fig2.update_layout(height=400, showlegend=False, xaxis_title="", yaxis_title="Volume")
     st.plotly_chart(fig2, use_container_width=True)
 
-# --- AI INSIGHTS & TRENDS (FIXED LOOK) ---
+# --- AI INSIGHTS & TREND FORECASTING ---
 st.write("---")
-st.subheader("🤖 AI Intelligence & Trend Forecasting")
-col_ai1, col_ai2 = st.columns([1, 2])
+st.subheader("🤖 AI Business Intelligence & Forecasting")
 
-with col_ai1:
-    st.info("**Anomaly Detection Summary**")
+ai_col1, ai_col2 = st.columns([1, 2])
+
+with ai_col1:
+    st.markdown("#### 🚩 Anomaly Engine")
+    # AI Logic: Flagging transactions 3x higher than average
     threshold = filtered_df['displayamount'].mean() * 3
     anomalies = filtered_df[filtered_df['displayamount'] > threshold]
-    if not anomalies.empty:
-        st.warning(f"Detected {len(anomalies)} high-risk anomalies.")
-        st.button("Download Forensic Report", use_container_width=True)
-    else:
-        st.success("No anomalies detected.")
-
-with col_ai2:
-    # SMOOTHING THE GRAPH (Moving Average)
-    df_daily = filtered_df.set_index('transactiondate').resample('D')['displayamount'].sum().fillna(0)
-    smooth_df = df_daily.rolling(window=7).mean()
     
-    fig_line = px.line(smooth_df, title="7-Day Moving Average Trend", labels={'value': 'Volume'})
-    fig_line.update_traces(line_color='#1e3a8a', line_width=3)
-    fig_line.update_layout(height=300, margin=dict(t=30, b=0, l=0, r=0))
-    st.plotly_chart(fig_line, use_container_width=True)
+    if not anomalies.empty:
+        st.error(f"Alert: {len(anomalies)} High-Risk entries detected!")
+        st.info("Large value spikes flagged for manual review.")
+        if st.button("Generate Audit Report"):
+            st.toast("Forensic report is being prepared...")
+    else:
+        st.success("Financial patterns are stable. No risks found.")
 
-st.write("---")
-st.caption("FinPulse AI v2.6 | Developed by Aarti | Financial Data Intelligence Portfolio")
+with ai_col2:
+    #
