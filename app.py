@@ -2,142 +2,100 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-# 1. PAGE CONFIGURATION
-st.set_page_config(page_title="FinPulse AI Ecosystem", layout="wide", page_icon="🏦")
+# Page configuration
+st.set_page_config(page_title="FinPulse AI Ecosystem", layout="wide")
 
-# 2. CUSTOM STYLING (CSS)
+# Custom Styling
 st.markdown("""
     <style>
-    .main { background-color: #f8f9fa; }
-    .stMetric { background-color: white; padding: 20px; border-radius: 10px; box-shadow: 0px 4px 12px rgba(0,0,0,0.1); }
-    h1 { color: #1e3a8a; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    .main { background-color: #f5f7f9; }
+    .stMetric { background-color: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. DATA LOADING FUNCTION
+# Title and Sidebar
+st.title("🏦 FinPulse AI: Financial Intelligence Ecosystem")
+st.sidebar.header("Control Panel")
+
+# 1. CURRENCY ENGINE
+currency_mode = st.sidebar.radio("Select Currency Base:", ["USD ($)", "INR (₹)"])
+conversion_rate = 83.5  # Standard Rate
+
+# Load Data
 @st.cache_data
 def load_data():
-    # Loading the data.csv file from your folder
     df = pd.read_csv("data.csv")
     df['TransactionDate'] = pd.to_datetime(df['TransactionDate'])
     return df
 
-try:
-    df = load_data()
-except Exception as e:
-    st.error("⚠️ Error: 'data.csv' not found! Please ensure the file is in your project folder.")
-    st.stop()
+df = load_data()
 
-# 4. SIDEBAR - CURRENCY SWITCHER & FILTERS
-st.sidebar.title("🏛️ FinPulse Settings")
-
-# --- Dynamic Currency Switcher ---
-st.sidebar.subheader("💱 Currency Settings")
-currency_mode = st.sidebar.radio("Display Currency In:", ["USD ($)", "INR (₹)"])
-
-# Conversion Logic
-conversion_rate = 83.5 # Standard USD to INR rate
+# Apply Currency Logic
 if currency_mode == "INR (₹)":
-    # Calculating values in INR
     df['DisplayAmount'] = df['TransactionAmount'].abs() * conversion_rate
-    symbol = "₹"
-    unit = "Cr" # Crores
+    symbol, unit = "₹", "Cr"
 else:
-    # Calculating values in USD
     df['DisplayAmount'] = df['TransactionAmount'].abs()
-    symbol = "$"
-    unit = "M" # Millions
+    symbol, unit = "$", "M"
 
-st.sidebar.markdown("---")
+# Sidebar Filters
+channels = st.sidebar.multiselect("Select Channels:", options=df['Channel'].unique(), default=df['Channel'].unique())
+filtered_df = df[df['Channel'].isin(channels)]
 
-# --- Navigation Menu ---
-menu = st.sidebar.selectbox("Go to Page:", ["Executive Dashboard", "Risk Analysis", "Data Explorer"])
+# --- MAIN DASHBOARD (KPIs) ---
+m1, m2, m3 = st.columns(3)
+total_vol = filtered_df['DisplayAmount'].sum()
+avg_val = filtered_df['DisplayAmount'].mean()
 
-# --- Global Filters ---
-st.sidebar.header("🔍 Data Filters")
-selected_channel = st.sidebar.multiselect("Select Channel", options=df['TransactionChannel'].unique(), default=df['TransactionChannel'].unique())
-filtered_df = df[df['TransactionChannel'].isin(selected_channel)]
+with m1:
+    st.metric("Total Transaction Volume", f"{symbol}{total_vol/1e6:.2f} {unit}")
+with m2:
+    st.metric("Average Ticket Size", f"{symbol}{avg_val:,.0f}")
+with m3:
+    st.metric("Active Channels", len(channels))
 
-# 5. PAGE 1: EXECUTIVE DASHBOARD
-if menu == "Executive Dashboard":
-    st.title(f"📊 Financial Summary ({currency_mode})")
-    
-    # KPI Calculations
-    total_volume = filtered_df['DisplayAmount'].sum()
-    avg_txn = filtered_df['DisplayAmount'].mean()
-    success_count = len(filtered_df[filtered_df['Status'] == 'Success'])
-    success_rate = (success_count / len(filtered_df)) * 100 if len(filtered_df) > 0 else 0
-    
-    # Displaying Metric Cards
-    m1, m2, m3 = st.columns(3)
-    
-    if currency_mode == "INR (₹)":
-        m1.metric("Total Volume", f"{symbol}{total_volume/1e7:.2f} {unit}")
-    else:
-        m1.metric("Total Volume", f"{symbol}{total_volume/1e6:.2f} {unit}")
-        
-    m2.metric("Average Transaction", f"{symbol}{avg_txn:,.2f}")
-    m3.metric("Success Rate", f"{success_rate:.1f}%")
-
-    st.markdown("---")
-
-    # Visualizations
-    c1, c2 = st.columns(2)
-    with c1:
-        # Pie Chart
-        fig_pie = px.pie(filtered_df, names='TransactionChannel', values='DisplayAmount', 
-                         title=f"Transaction Volume by Channel ({symbol})", hole=0.5)
-        st.plotly_chart(fig_pie, use_container_width=True)
-        
-    with c2:
-        # Bar Chart
-        fig_bar = px.bar(filtered_df.groupby('TransactionType')['DisplayAmount'].sum().reset_index(), 
-                         x='TransactionType', y='DisplayAmount', 
-                         title=f"Volume by Type ({symbol})", color='TransactionType')
-        st.plotly_chart(fig_bar, use_container_width=True)
-
-# 6. PAGE 2: RISK ANALYSIS
-elif menu == "Risk Analysis":
-    st.title("🛡️ Fraud & Risk Detection")
-    st.info("Identify high-value anomalies based on current currency selection.")
-    
-    # Slider for user-defined threshold
-    limit = st.slider(f"Select Alert Threshold ({symbol})", 
-                      min_value=int(df['DisplayAmount'].min()), 
-                      max_value=int(df['DisplayAmount'].max()), 
-                      value=int(df['DisplayAmount'].mean() * 2))
-    
-    high_risk = filtered_df[filtered_df['DisplayAmount'] > limit]
-    st.warning(f"Found {len(high_risk)} transactions above {symbol}{limit:,}")
-    st.dataframe(high_risk, use_container_width=True)
-
-# 7. PAGE 3: DATA EXPLORER
-elif menu == "Data Explorer":
-    st.title("🗄️ Enterprise Data Ledger")
-    st.write(f"Showing raw records converted to {currency_mode}")
-    # Show dynamic column
-    st.dataframe(filtered_df[['TransactionID', 'TransactionDate', 'DisplayAmount', 'TransactionChannel', 'Status']], use_container_width=True)
-    
-    # Export functionality
-    csv = filtered_df.to_csv(index=False).encode('utf-8')
-    st.download_button("📥 Download Filtered Report", csv, "FinPulse_Report.csv", "text/csv")
-    # --- ADVANCED FEATURE: AI INSIGHTS & FORECASTING ---
+# --- VISUALIZATIONS ---
 st.write("---")
-st.subheader("🤖 AI Business Insights")
+c1, c2 = st.columns(2)
 
-col1, col2 = st.columns(2)
+with c1:
+    st.subheader("Transaction Distribution")
+    fig1 = px.pie(filtered_df, names='TransactionType', values='DisplayAmount', hole=0.4, color_discrete_sequence=px.colors.sequential.RdBu)
+    st.plotly_chart(fig1, use_container_width=True)
 
-with col1:
-    # Logic: Identifying High-Value Anomalies
-    avg_val = df['DisplayAmount'].mean()
-    anomalies = df[df['DisplayAmount'] > avg_val * 3]
-    st.warning(f"Found {len(anomalies)} suspicious high-value transactions.")
-    if st.checkbox("Show Risky Transactions"):
-        st.dataframe(anomalies)
+with c2:
+    st.subheader("Channel Performance")
+    fig2 = px.bar(filtered_df, x='Channel', y='DisplayAmount', color='Channel', barmode='group')
+    st.plotly_chart(fig2, use_container_width=True)
 
-with col2:
-    # Logic: Simple Forecasting (Visual Representation)
-    st.info("Trend Forecast: Next 30 Days")
-    forecast_data = df.groupby('TransactionDate')['DisplayAmount'].sum().rolling(7).mean()
-    st.line_chart(forecast_data)
-    st.caption("AI prediction based on 7-day moving average.")
+# --- ADVANCED AI INSIGHTS & FORECASTING ---
+st.write("---")
+st.subheader("🤖 AI Business Insights & Forecasting")
+
+ai_col1, ai_col2 = st.columns([1, 2])
+
+with ai_col1:
+    st.markdown("#### 🚩 Anomaly Detection")
+    # AI Logic: Flagging transactions 3x higher than average
+    threshold = avg_val * 3
+    anomalies = filtered_df[filtered_df['DisplayAmount'] > threshold]
+    
+    if not anomalies.empty:
+        st.error(f"Alert: {len(anomalies)} High-Risk transactions detected!")
+        if st.checkbox("View Risk Logs"):
+            st.dataframe(anomalies[['TransactionID', 'DisplayAmount', 'Channel']].head(10))
+    else:
+        st.success("Financial patterns look stable. No anomalies detected.")
+
+with ai_col2:
+    st.markdown("#### 📈 7-Day Trend Analysis")
+    # Grouping data by date for clean forecasting trend
+    df_daily = filtered_df.set_index('TransactionDate').resample('D')['DisplayAmount'].sum().fillna(0)
+    forecast = df_daily.rolling(window=7).mean()
+    
+    st.line_chart(forecast)
+    st.caption("AI Note: Moving average trend used to predict future liquidity requirements.")
+
+# Footer
+st.write("---")
+st.caption("Developed by Aarti | FinPulse AI Ecosystem v2.0 | Confidential Data Strategy")
