@@ -5,10 +5,9 @@ import plotly.express as px
 # 1. PAGE CONFIGURATION
 st.set_page_config(page_title="FinPulse AI Ecosystem", layout="wide", initial_sidebar_state="expanded")
 
-# 2. PREMIUM UI STYLING (Restoring the clean look)
+# 2. PREMIUM UI STYLING
 st.markdown("""
     <style>
-    /* Metric Card Styling */
     [data-testid="stMetric"] {
         background-color: #ffffff;
         border: 1px solid #e2e8f0;
@@ -19,8 +18,6 @@ st.markdown("""
     .main { background-color: #f8fafc; }
     h1 { color: #1e3a8a; font-weight: 800; font-family: 'Inter', sans-serif; }
     h3 { color: #334155; font-weight: 600; }
-    
-    /* Making Multiselect Tags look professional */
     span[data-baseweb="tag"] {
         background-color: #1e3a8a !important;
         color: white !important;
@@ -32,38 +29,31 @@ st.markdown("""
 @st.cache_data
 def load_data():
     df = pd.read_csv("data.csv")
-    # Clean column names
     df.columns = df.columns.str.strip().str.lower()
-    # Convert date format
     if 'transactiondate' in df.columns:
         df['transactiondate'] = pd.to_datetime(df['transactiondate'])
     return df
 
 df = load_data()
 
-# --- SIDEBAR (Clean & Spacious Filters) ---
+# --- SIDEBAR FILTERS ---
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/2830/2830284.png", width=80)
     st.title("Control Panel")
     st.write("---")
     
-    # Currency Switcher
     currency_mode = st.radio("Reporting Currency:", ["USD ($)", "INR (₹)"], index=0)
     
-    st.write("") # Spacer
     st.write("---")
-    
-    # Restoring the "ATM/WEB" Filter look you liked
     st.subheader("Filter by Channel")
     available_channels = df['transactionchannel'].unique()
     selected_channels = st.multiselect(
         "Select specific channels:",
         options=available_channels, 
-        default=available_channels,
-        help="Choose channels to update the dashboard visuals"
+        default=available_channels
     )
     st.write("---")
-    st.caption("FinPulse AI v2.7 | Secure Environment")
+    st.caption("FinPulse AI v2.7")
 
 # --- CURRENCY CALCULATIONS ---
 conversion_rate = 83.5 
@@ -74,14 +64,13 @@ else:
     df['displayamount'] = df['transactionamount'].abs()
     symbol, unit = "$", "M"
 
-# Apply Filters
 filtered_df = df[df['transactionchannel'].isin(selected_channels)]
 
-# --- MAIN DASHBOARD LAYOUT ---
+# --- MAIN DASHBOARD ---
 st.title("🏦 FinPulse AI: Financial Intelligence Ecosystem")
 st.markdown("#### Real-time Liquidity and Risk Monitoring")
 
-# KPI Metrics Row
+# KPI Metrics
 m1, m2, m3 = st.columns(3)
 with m1:
     st.metric("Total Volume", f"{symbol}{filtered_df['displayamount'].sum()/1e6:.2f} {unit}")
@@ -116,17 +105,24 @@ ai_col1, ai_col2 = st.columns([1, 2])
 
 with ai_col1:
     st.markdown("#### 🚩 Anomaly Engine")
-    # AI Logic: Flagging transactions 3x higher than average
     threshold = filtered_df['displayamount'].mean() * 3
     anomalies = filtered_df[filtered_df['displayamount'] > threshold]
     
     if not anomalies.empty:
         st.error(f"Alert: {len(anomalies)} High-Risk entries detected!")
-        st.info("Large value spikes flagged for manual review.")
-        if st.button("Generate Audit Report"):
-            st.toast("Forensic report is being prepared...")
+        st.info("Large value spikes flagged for review.")
     else:
-        st.success("Financial patterns are stable. No risks found.")
+        st.success("Financial patterns are stable.")
 
 with ai_col2:
-    #
+    # Smooth trend line logic
+    df_daily = filtered_df.set_index('transactiondate').resample('D')['displayamount'].sum().fillna(0)
+    smooth_trend = df_daily.rolling(window=7).mean()
+    
+    fig_line = px.line(smooth_trend, title="7-Day Market Volume Trend", labels={'value': 'Volume'})
+    fig_line.update_traces(line_color='#1e3a8a', line_width=4)
+    fig_line.update_layout(height=300)
+    st.plotly_chart(fig_line, use_container_width=True)
+
+st.write("---")
+st.markdown("<p style='text-align: center; color: #94a3b8;'>Developed by Aarti | FinPulse AI Ecosystem v2.7</p>", unsafe_allow_html=True)
